@@ -46,18 +46,26 @@ const ALLOWED = {
   announcements: ['title','body','classId','date','audience'],
   inventory: ['name','sku','quantity','unit','price','notes'],
   employees: ['name','jobTitle','phone','salary','status','notes'],
+  curricula: ['title','classId','subjectId','year','description','status'],
+  reviews: ['title','classId','subjectId','date','description','url','status'],
+  questions: ['question','classId','subjectId','options','solution','maxScore','difficulty','status'],
+  transport: ['name','driverName','phone','capacity','route','status'],
+  meetings: ['title','classId','date','startTime','location','description','audience'],
+  behavior: ['studentId','date','description','action','status'],
+  libraryLoans: ['studentId','bookId','date','dueDate','status','notes'],
+  salaryPlans: ['employeeId','amount','startDate','status','notes'],
 };
 const READ = {
   admin: Object.keys(ALLOWED), principal: Object.keys(ALLOWED),
-  accountant: ['students','teachers','classes','inventory','employees','announcements'],
-  teacher: ['students','teachers','classes','subjects','lessons','books','assignments','submissions','exams','grades','attendance','schedule','announcements'],
-  guardian: ['students','classes','subjects','lessons','books','assignments','submissions','exams','grades','attendance','schedule','announcements'],
-  student: ['students','classes','subjects','lessons','books','assignments','submissions','exams','grades','attendance','schedule','announcements'],
+  accountant: ['students','teachers','classes','inventory','employees','announcements','salaryPlans'],
+  teacher: ['students','teachers','classes','subjects','lessons','books','assignments','submissions','exams','grades','attendance','schedule','announcements','curricula','reviews','questions','meetings','behavior','libraryLoans'],
+  guardian: ['students','classes','subjects','lessons','books','assignments','submissions','exams','grades','attendance','schedule','announcements','curricula','reviews','meetings','behavior','libraryLoans'],
+  student: ['students','classes','subjects','lessons','books','assignments','submissions','exams','grades','attendance','schedule','announcements','curricula','reviews','meetings','behavior','libraryLoans'],
 };
 const WRITE = {
   admin: Object.keys(ALLOWED), principal: Object.keys(ALLOWED),
-  accountant: ['inventory','employees'],
-  teacher: ['lessons','books','assignments','exams','grades','attendance','schedule','announcements'],
+  accountant: ['inventory','employees','salaryPlans'],
+  teacher: ['lessons','books','assignments','exams','grades','attendance','schedule','announcements','curricula','reviews','questions','meetings','behavior','libraryLoans'],
   guardian: [], student: ['submissions'],
 };
 const ACCOUNT_SEED = [
@@ -109,8 +117,8 @@ function session(req,res,user){
   res.setHeader('Set-Cookie',makeCookie(req,token));
 }
 function requireAuth(req){const user=who(req);if(!user)error(401,'يجب تسجيل الدخول أولاً');return user;}
-function bodyFrom(req){return new Promise((resolve,reject)=>{
-  let data='';req.on('data',chunk=>{data+=chunk;if(data.length>512000){reject(Object.assign(new Error('حجم الطلب كبير'),{status:413}));req.destroy();}});
+function bodyFrom(req,limit=512000){return new Promise((resolve,reject)=>{
+  let data='';req.on('data',chunk=>{data+=chunk;if(data.length>limit){reject(Object.assign(new Error('حجم الطلب كبير'),{status:413}));req.destroy();}});
   req.on('end',()=>{try{resolve(data?JSON.parse(data):{});}catch{reject(Object.assign(new Error('البيانات غير صالحة'),{status:400}));}});req.on('error',reject);
 });}
 const attempts=new Map();
@@ -163,11 +171,11 @@ function canWriteRecord(user,type,record){
 function validateData(type,data,existing={}){
   if(!data || typeof data!=='object'||Array.isArray(data))error(400,'بيانات النموذج غير صحيحة');
   const out={};for(const k of ALLOWED[type])if(data[k]!==undefined){
-    const value=data[k];if(typeof value!=='string' && typeof value!=='number' && value!==null)error(400,'قيمة غير صحيحة: '+k);
-    out[k]= typeof value==='string'?value.trim().slice(0,k==='description'||k==='body'||k==='instructions'||k==='answer'||k==='notes'?5000:300):value;
+    const value=data[k];if(typeof value!=='string' && typeof value!=='number' && value!==null || typeof value==='number'&&!Number.isFinite(value))error(400,'قيمة غير صحيحة: '+k);
+    out[k]= typeof value==='string'?value.trim().slice(0,['description','body','instructions','answer','notes','feedback','question','options','solution'].includes(k)?5000:300):value;
   }
   const merged={...Object.fromEntries(ALLOWED[type].filter(k=>existing[k]!==undefined).map(k=>[k,existing[k]])),...out};
-  const required={students:['name'],teachers:['name'],classes:['name'],subjects:['name'],lessons:['title'],books:['title'],assignments:['title'],submissions:['assignmentId','studentId'],exams:['title'],grades:['studentId','examId','score'],attendance:['studentId','date','status'],schedule:['classId','day','startTime'],announcements:['title','body'],inventory:['name'],employees:['name']};
+  const required={students:['name'],teachers:['name'],classes:['name'],subjects:['name'],lessons:['title'],books:['title'],assignments:['title'],submissions:['assignmentId','studentId'],exams:['title'],grades:['studentId','examId','score'],attendance:['studentId','date','status'],schedule:['classId','day','startTime'],announcements:['title','body'],inventory:['name'],employees:['name'],curricula:['title'],reviews:['title'],questions:['question'],transport:['name'],meetings:['title'],behavior:['studentId','date','description'],libraryLoans:['studentId','bookId','date'],salaryPlans:['employeeId','amount']};
   for(const k of required[type]||[])if(merged[k]===undefined||merged[k]===null||merged[k]==='')error(400,'حقل مطلوب: '+k);
   if(type==='attendance'&&!['present','absent','late','excused'].includes(merged.status))error(400,'حالة حضور غير صحيحة');
   if(['grades','submissions'].includes(type) && merged.score!==undefined && merged.score!==''){
@@ -182,9 +190,13 @@ function validateRelations(user,type,rec){
   if(rec.examId && !recordById(org,'exams',rec.examId))error(400,'الاختبار غير موجود');
   if(rec.assignmentId && !recordById(org,'assignments',rec.assignmentId))error(400,'الواجب غير موجود');
   if(rec.subjectId && !recordById(org,'subjects',rec.subjectId))error(400,'المادة غير موجودة');
+  if(rec.bookId && !recordById(org,'books',rec.bookId))error(400,'الكتاب غير موجود');
+  if(rec.employeeId && !recordById(org,'employees',rec.employeeId))error(400,'الموظف غير موجود');
   if(rec.guardianUserId){const m=db.prepare('SELECT role FROM memberships WHERE user_id=? AND org_id=?').get(rec.guardianUserId,org);if(!m||m.role!=='guardian')error(400,'ولي الأمر غير صالح');}
   if(rec.teacherUserId){const m=db.prepare('SELECT role FROM memberships WHERE user_id=? AND org_id=?').get(rec.teacherUserId,org);if(!m||!['teacher','admin','principal'].includes(m.role))error(400,'المعلم غير صالح');}
-  if(type==='grades'){const st=recordById(org,'students',rec.studentId),exam=recordById(org,'exams',rec.examId);if(exam.classId && st.classId!==exam.classId)error(400,'الاختبار والطالب ليسا في الصف نفسه');}
+  if(type==='grades'){const st=recordById(org,'students',rec.studentId),exam=recordById(org,'exams',rec.examId);if(exam.classId && st.classId!==exam.classId)error(400,'الاختبار والطالب ليسا في الصف نفسه');if(Number(rec.score)>Number(exam.maxScore||100))error(400,'الدرجة أكبر من الدرجة النهائية');}
+  if(type==='submissions'){const st=recordById(org,'students',rec.studentId),ass=recordById(org,'assignments',rec.assignmentId);if(ass.classId&&st.classId!==ass.classId)error(400,'الطالب والواجب ليسا في الصف نفسه');if(rec.score!==undefined&&Number(rec.score)>Number(ass.maxScore||100))error(400,'الدرجة أكبر من الدرجة النهائية');}
+  if(rec.subjectId && rec.classId){const subject=recordById(org,'subjects',rec.subjectId);if(subject.classId&&rec.classId!==subject.classId)error(400,'المادة لا تتبع الصف');}
   if(type==='attendance'){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(rec.date))error(400,'تاريخ الحضور غير صحيح');
   }
@@ -208,7 +220,7 @@ function idem(user,key,fn){
 }
 function serveStatic(req,res,pathname){
   let filename=pathname==='/'?'/index.html':pathname;
-  if(!['/','/index.html','/app.js','/styles.css','/sw.js','/manifest.webmanifest','/logo.svg','/icon.svg'].includes(filename)) filename='/index.html';
+  if(!['/','/index.html','/app.js','/offline.js','/styles.css','/sw.js','/manifest.webmanifest','/logo.svg','/icon.svg'].includes(filename)) filename='/index.html';
   const file=path.join(WEB_DIR,filename.replace(/^\//,''));
   if(!fs.existsSync(file)){res.writeHead(404);return res.end('Not found');}
   const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'}[path.extname(file)]||'application/octet-stream';
@@ -219,7 +231,7 @@ async function route(req,res){
   if(!p.startsWith('/api/'))return serveStatic(req,res,p);
   checkOrigin(req);
   if(p==='/api/health'&&req.method==='GET')return json(res,200,{ok:true,initialized:!!db.prepare('SELECT 1 FROM organizations LIMIT 1').get(),version:'0.1.0'});
-  const b=['POST','PATCH','PUT'].includes(req.method)?await bodyFrom(req):{};
+  const b=['POST','PATCH','PUT'].includes(req.method)?await bodyFrom(req,p==='/api/import-offline'?10*1024*1024:512000):{};
   if(p==='/api/setup'&&req.method==='POST'){
     if(db.prepare('SELECT 1 FROM organizations LIMIT 1').get())error(409,'تم إنشاء المؤسسة بالفعل');
     const schoolName=text(b.schoolName,150),name=text(b.name,100),email=normEmail(b.email),password=String(b.password||'');
@@ -259,14 +271,23 @@ async function route(req,res){
     db.prepare('DELETE FROM sessions WHERE user_id=?').run(user.id);
     res.setHeader('Set-Cookie',makeCookie(req,'',0));return json(res,200,{ok:true});
   }
-  const match=p.match(/^\/api\/data\/([a-z]+)(?:\/([a-z0-9-]+))?$/);
+  const reset=p.match(/^\/api\/users\/([a-z0-9-]+)\/password$/);
+  if(reset&&req.method==='POST'){
+    if(user.role!=='admin')error(403,'هذه العملية للمدير فقط');
+    const target=db.prepare('SELECT u.id FROM users u JOIN memberships m ON m.user_id=u.id WHERE u.id=? AND m.org_id=?').get(reset[1],user.orgId);
+    if(!target)error(404,'المستخدم غير موجود');
+    if(String(b.password||'').length<10)error(400,'كلمة المرور قصيرة');
+    tx(()=>{db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(passwordHash(String(b.password)),target.id);db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id);audit(user,'password-reset','users',target.id);});
+    return json(res,200,{ok:true});
+  }
+  const match=p.match(/^\/api\/data\/([a-zA-Z]+)(?:\/([a-z0-9-]+))?$/);
   if(match){const type=match[1],id=match[2];if(!ALLOWED[type])error(404,'القسم غير موجود');
     if(req.method==='GET'&&!id){if(!READ[user.role]?.includes(type))error(403,'لا تملك الصلاحية');return json(res,200,{items:allRecords(user.orgId,type).filter(rec=>visible(user,type,rec))});}
     if(!WRITE[user.role]?.includes(type))error(403,'لا تملك صلاحية التعديل');
     if(req.method==='POST'&&!id){const data=validateData(type,b.data);validateRelations(user,type,data);if(!canWriteRecord(user,type,data))error(403,'لا تملك صلاحية هذا السجل');
-      const row=tx(()=>{if(type==='attendance'&&allRecords(user.orgId,'attendance').some(x=>x.studentId===data.studentId&&x.date===data.date))error(409,'سُجل حضور هذا الطالب مسبقًا');const rid=uid(),createdAt=now();db.prepare('INSERT INTO records VALUES (?,?,?,?,?,?)').run(rid,user.orgId,type,JSON.stringify(data),createdAt,createdAt);audit(user,'create',type,rid);return {id:rid,...data,createdAt,updatedAt:createdAt};});return json(res,201,{item:row});}
-    if(req.method==='PATCH'&&id){const old=recordById(user.orgId,type,id);if(!old)error(404,'السجل غير موجود');if(!canWriteRecord(user,type,old))error(403,'لا تملك صلاحية هذا السجل');const data=validateData(type,b.data,old);validateRelations(user,type,data);if(!canWriteRecord(user,type,data))error(403,'صلاحية غير كافية');const row=tx(()=>{db.prepare('UPDATE records SET data=?,updated_at=? WHERE id=? AND org_id=?').run(JSON.stringify(data),now(),id,user.orgId);audit(user,'update',type,id);return {id,...data};});return json(res,200,{item:row});}
-    if(req.method==='DELETE'&&id){const old=recordById(user.orgId,type,id);if(!old)error(404,'السجل غير موجود');if(!canWriteRecord(user,type,old))error(403,'لا تملك الصلاحية');if(['students','classes','exams'].includes(type))error(409,'حماية السجلات المرتبطة: استخدم تعديل الحالة بدلاً من الحذف');tx(()=>{db.prepare('DELETE FROM records WHERE id=? AND org_id=?').run(id,user.orgId);audit(user,'delete',type,id);});return json(res,200,{ok:true});}
+      const row=tx(()=>{if(['attendance','grades','submissions'].includes(type)){const keys={attendance:['studentId','date'],grades:['studentId','examId'],submissions:['studentId','assignmentId']}[type];if(allRecords(user.orgId,type).some(x=>keys.every(k=>x[k]===data[k])))error(409,'سُجلت هذه العملية مسبقًا');}const rid=uid(),createdAt=now();db.prepare('INSERT INTO records VALUES (?,?,?,?,?,?)').run(rid,user.orgId,type,JSON.stringify(data),createdAt,createdAt);audit(user,'create',type,rid);return {id:rid,...data,createdAt,updatedAt:createdAt};});return json(res,201,{item:row});}
+    if(req.method==='PATCH'&&id){const old=recordById(user.orgId,type,id);if(!old)error(404,'السجل غير موجود');if(!canWriteRecord(user,type,old))error(403,'لا تملك صلاحية هذا السجل');const data=validateData(type,b.data,old);validateRelations(user,type,data);if(!canWriteRecord(user,type,data))error(403,'صلاحية غير كافية');const row=tx(()=>{if(['attendance','grades','submissions'].includes(type)){const keys={attendance:['studentId','date'],grades:['studentId','examId'],submissions:['studentId','assignmentId']}[type];if(allRecords(user.orgId,type).some(x=>x.id!==id&&keys.every(k=>x[k]===data[k])))error(409,'يوجد سجل مكرر');}db.prepare('UPDATE records SET data=?,updated_at=? WHERE id=? AND org_id=?').run(JSON.stringify(data),now(),id,user.orgId);audit(user,'update',type,id);return {id,...data};});return json(res,200,{item:row});}
+    if(req.method==='DELETE'&&id){const old=recordById(user.orgId,type,id);if(!old)error(404,'السجل غير موجود');if(!canWriteRecord(user,type,old))error(403,'لا تملك الصلاحية');if(['students','classes','exams','subjects','assignments','books','employees'].includes(type))error(409,'حماية السجلات المرتبطة: استخدم تعديل الحالة بدلاً من الحذف');tx(()=>{db.prepare('DELETE FROM records WHERE id=? AND org_id=?').run(id,user.orgId);audit(user,'delete',type,id);});return json(res,200,{ok:true});}
   }
   if(p==='/api/finance/fees'&&req.method==='GET'){
     if(!financialRead(user))error(403,'لا تملك الصلاحية');
@@ -316,6 +337,52 @@ async function route(req,res){
   }
   if(p==='/api/audit'&&req.method==='GET'){
     if(user.role!=='admin')error(403,'لا تملك الصلاحية');return json(res,200,{items:db.prepare('SELECT a.*,u.name as userName FROM audit a JOIN users u ON u.id=a.user_id WHERE a.org_id=? ORDER BY a.created_at DESC LIMIT 200').all(user.orgId)});
+  }
+  if(p==='/api/import-offline'&&req.method==='POST'){
+    if(user.role!=='admin')error(403,'استيراد البيانات للمدير فقط');
+    const items=['users','records','feeInvoices','payments','expenses','journal','lines'];
+    if(b.format!=='alsarh.offline.v1'||!b.organization?.id||!b.organization?.name||items.some(k=>!Array.isArray(b[k])||b[k].length>30000))error(400,'الملف ليس نسخة محلية صالحة');
+    const idOK=id=>typeof id==='string'&&/^[0-9a-f-]{36}$/i.test(id);
+    const unique=(list)=>list.every(v=>idOK(v.id))&&new Set(list.map(v=>v.id)).size===list.length;
+    if(!['users','records','feeInvoices','payments','expenses','journal'].every(k=>unique(b[k])))error(400,'معرفات النسخة غير صالحة أو مكررة');
+    const adminIds=b.users.filter(x=>x.role==='admin').map(x=>x.id);
+    if(!adminIds.length||b.users.some(x=>!['admin','principal','accountant','teacher','guardian','student'].includes(x.role)||!text(x.name)||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normEmail(x.email))))error(400,'حسابات النسخة غير صالحة');
+    if(db.prepare('SELECT count(*) n FROM records WHERE org_id=?').get(user.orgId).n||db.prepare('SELECT count(*) n FROM journal WHERE org_id=?').get(user.orgId).n||db.prepare('SELECT count(*) n FROM fee_invoices WHERE org_id=?').get(user.orgId).n||db.prepare('SELECT count(*) n FROM memberships WHERE org_id=?').get(user.orgId).n!==1)error(409,'الاستيراد متاح لمؤسسة جديدة وفارغة فقط');
+    const imported=tx(()=>{
+      const userMap=new Map();for(const original of b.users){if(original.role==='admin'){userMap.set(original.id,user.id);continue;}
+        const email=normEmail(original.email);if(db.prepare('SELECT id FROM users WHERE email=?').get(email))error(409,'بريد مستخدم مسبقًا: '+email);
+        const locked=passwordHash(crypto.randomBytes(48).toString('hex'));
+        db.prepare('INSERT INTO users VALUES (?,?,?,?,?)').run(original.id,text(original.name,100),email,locked,now());
+        db.prepare('INSERT INTO memberships VALUES (?,?,?,?)').run(original.id,user.orgId,original.role,original.role==='student'?original.studentId||null:null);
+        userMap.set(original.id,original.id);
+      }
+      const mapId=id=>id?(userMap.get(id)||null):id;
+      const insertRec=db.prepare('INSERT INTO records VALUES (?,?,?,?,?,?)');
+      for(const item of b.records){if(!ALLOWED[item.type])error(400,'نوع سجل غير معروف: '+item.type);
+        const source={...item.data};for(const field of ['teacherUserId','guardianUserId','userId'])if(source[field])source[field]=mapId(source[field]);
+        const clean=validateData(item.type,source);
+        insertRec.run(item.id,user.orgId,item.type,JSON.stringify(clean),text(item.created_at,30)||now(),text(item.updated_at,30)||now());
+      }
+      for(const item of b.records){const row=recordById(user.orgId,item.type,item.id);validateRelations(user,item.type,row);}
+      for(const old of b.users){if(old.role==='student'&&old.studentId&&!recordById(user.orgId,'students',old.studentId))error(400,'حساب طالب مرتبط بسجل غير موجود');}
+      const accounts=new Set(db.prepare('SELECT code FROM accounts WHERE org_id=?').all(user.orgId).map(a=>a.code));
+      const feeIds=new Set(),paymentIds=new Set(),expenseIds=new Set();
+      for(const f of b.feeInvoices){if(!recordById(user.orgId,'students',f.student_id)||!Number.isSafeInteger(f.amount)||f.amount<=0||!Number.isSafeInteger(f.paid)||f.paid<0||f.paid>f.amount)error(400,'أقساط غير صحيحة');
+        feeIds.add(f.id);db.prepare('INSERT INTO fee_invoices VALUES (?,?,?,?,?,?,?,?)').run(f.id,user.orgId,f.student_id,text(f.description,250),f.amount,f.paid,text(f.due_date,10)||null,text(f.created_at,30)||now());}
+      for(const p of b.payments){if(!feeIds.has(p.fee_id)||!Number.isSafeInteger(p.amount)||p.amount<=0||!['cash','bank'].includes(p.method))error(400,'تحصيلات غير صحيحة');paymentIds.add(p.id);
+        db.prepare('INSERT INTO payments VALUES (?,?,?,?,?,?)').run(p.id,user.orgId,p.fee_id,p.amount,p.method,text(p.created_at,30)||now());}
+      for(const f of b.feeInvoices){const paid=db.prepare('SELECT COALESCE(SUM(amount),0) amount FROM payments WHERE fee_id=? AND org_id=?').get(f.id,user.orgId).amount;if(paid!==f.paid)error(400,'التحصيلات لا تطابق الرصيد المسدد');}
+      for(const ex of b.expenses){if(!Number.isSafeInteger(ex.amount)||ex.amount<=0||!['cash','bank'].includes(ex.method))error(400,'مصروف غير صحيح');expenseIds.add(ex.id);db.prepare('INSERT INTO expenses VALUES (?,?,?,?,?,?,?)').run(ex.id,user.orgId,text(ex.category,100),text(ex.description,250),ex.amount,ex.method,text(ex.created_at,30)||now());}
+      const lines=b.lines;
+      for(const j of b.journal){const values=lines.filter(l=>l.journal_id===j.id);if(values.length<2||values.some(l=>!accounts.has(l.code)||!Number.isSafeInteger(l.debit)||!Number.isSafeInteger(l.credit)||l.debit<0||l.credit<0||l.debit&&l.credit)||values.reduce((n,l)=>n+l.debit-l.credit,0)!==0)error(400,'القيود المالية غير متوازنة');
+        if((j.kind==='fee'&&!feeIds.has(j.ref_id))||(j.kind==='payment'&&!paymentIds.has(j.ref_id))||(j.kind==='expense'&&!expenseIds.has(j.ref_id)))error(400,'مرجع قيد مالي غير صحيح');
+        db.prepare('INSERT INTO journal VALUES (?,?,?,?,?,?,?,?)').run(j.id,user.orgId,text(j.kind,30),text(j.ref_id,80),text(j.memo,250),text(j.entry_date,10)||now().slice(0,10),mapId(j.user_id)||user.id,text(j.created_at,30)||now());
+        for(const l of values)db.prepare('INSERT INTO journal_lines(journal_id,code,debit,credit) VALUES (?,?,?,?)').run(j.id,l.code,l.debit,l.credit);
+      }
+      if(lines.some(l=>!b.journal.some(j=>j.id===l.journal_id)))error(400,'قيد يتيم');
+      audit(user,'offline-import','organization',user.orgId);
+      return {ok:true,imported:{users:b.users.length-1,records:b.records.length,fees:b.feeInvoices.length,payments:b.payments.length,expenses:b.expenses.length,journals:b.journal.length},passwordResetRequired:true};
+    });return json(res,201,imported);
   }
   if(p==='/api/export'&&req.method==='GET'){
     if(user.role!=='admin')error(403,'لا تملك الصلاحية');const snapshot={generatedAt:now(),organization:db.prepare('SELECT * FROM organizations WHERE id=?').get(user.orgId),records:db.prepare('SELECT * FROM records WHERE org_id=?').all(user.orgId),feeInvoices:db.prepare('SELECT * FROM fee_invoices WHERE org_id=?').all(user.orgId),payments:db.prepare('SELECT * FROM payments WHERE org_id=?').all(user.orgId),expenses:db.prepare('SELECT * FROM expenses WHERE org_id=?').all(user.orgId),accounts:db.prepare('SELECT * FROM accounts WHERE org_id=?').all(user.orgId),journal:db.prepare('SELECT * FROM journal WHERE org_id=?').all(user.orgId),lines:db.prepare('SELECT l.* FROM journal_lines l JOIN journal j ON j.id=l.journal_id WHERE j.org_id=?').all(user.orgId)};

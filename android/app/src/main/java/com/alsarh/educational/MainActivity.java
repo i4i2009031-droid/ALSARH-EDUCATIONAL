@@ -1,96 +1,179 @@
 package com.alsarh.educational;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
-import android.os.Build;
-import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
+import android.net.http.SslError;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceError;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.net.http.SslError;
-import android.widget.Button;
 import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.text.InputType;
-import android.net.Uri;
+import android.widget.Toast;
 
+import androidx.webkit.WebViewAssetLoader;
+
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * Two explicit workspaces:
+ *  1) Local, bundled and persistent (IndexedDB, no network needed).
+ *  2) School server, configured later over HTTPS (distinct origin and storage).
+ * No remote URL, API token, or sensitive student data is hard-coded into the APK.
+ */
 public class MainActivity extends Activity {
-    private final int NAVY = Color.rgb(9,46,98);
+    private static final int NAVY = Color.rgb(9, 46, 98);
+    private static final int EXPORT_JSON = 1102;
+    private static final int PICK_IMPORT = 1103;
+    private static final String LOCAL_URL = "https://appassets.androidplatform.net/assets/index.html";
     private WebView web;
-    private String serverUrl;
-    private LinearLayout root;
+    private String serverUrl = "";
+    private String pendingBackup = "";
+    private ValueCallback<Uri[]> importCallback;
+    private WebViewAssetLoader assets;
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setStatusBarColor(NAVY);
         getWindow().setNavigationBarColor(Color.WHITE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         serverUrl = getPreferences(Context.MODE_PRIVATE).getString("server_url", "");
-        if (serverUrl.isEmpty()) showSetup(); else showWeb();
+        assets = new WebViewAssetLoader.Builder()
+            .setDomain("appassets.androidplatform.net")
+            .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+            .build();
+        makeWebView();
+        web.loadUrl(serverUrl.isEmpty() ? LOCAL_URL : serverUrl);
     }
-    private LinearLayout layout() {
-        LinearLayout out = new LinearLayout(this);
-        out.setOrientation(LinearLayout.VERTICAL);
-        out.setGravity(Gravity.CENTER);
-        out.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        out.setBackgroundColor(Color.rgb(244,247,252));
-        out.setPadding(dp(24),dp(32),dp(24),dp(24));
-        return out;
-    }
-    private TextView text(String s, int size, int color) {
-        TextView t=new TextView(this);
-        t.setText(s);t.setTextSize(size);t.setTextColor(color);t.setGravity(Gravity.CENTER);t.setPadding(0,dp(10),0,dp(10));
-        return t;
-    }
-    private int dp(int v){return Math.round(getResources().getDisplayMetrics().density*v);}
-    private void showSetup(){
-        root=layout();root.addView(text("الصرح التعليمي",29,NAVY));
-        root.addView(text("ALSARH EDUCATIONAL SYSTEM",13,Color.GRAY));
-        root.addView(text("أدخل رابط HTTPS لخادم المؤسسة بعد نشر نسخة الويب.",15,NAVY));
-        EditText input=new EditText(this);input.setSingleLine(true);input.setTextDirection(View.TEXT_DIRECTION_LTR);
-        input.setHint("https://school.example.com");input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);
-        root.addView(input,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(64)));
-        TextView warning=text("البيانات لا تُخزّن على هذا الهاتف؛ يتم حفظها في خادم مدرستك.",12,Color.GRAY);root.addView(warning);
-        Button open=new Button(this);open.setText("فتح المنظومة");open.setTextColor(Color.WHITE);open.setBackgroundTintList(android.content.res.ColorStateList.valueOf(NAVY));
-        root.addView(open,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(55)));
-        open.setOnClickListener(v->{String s=input.getText().toString().trim();try{Uri u=Uri.parse(s);if(!"https".equalsIgnoreCase(u.getScheme())||u.getHost()==null||u.getHost().isEmpty()||u.getUserInfo()!=null||u.getHost().equals("example.com"))throw new IllegalArgumentException();serverUrl=u.getScheme()+"://"+u.getAuthority();getPreferences(Context.MODE_PRIVATE).edit().putString("server_url",serverUrl).apply();showWeb();}catch(Exception ex){input.setError("أدخل رابط HTTPS صحيحًا");}});
-        setContentView(root);
-    }
-    private void showWeb(){
-        web=new WebView(this);web.setBackgroundColor(Color.WHITE);
+
+    private boolean isLocal() { return serverUrl.isEmpty(); }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private void makeWebView() {
+        web = new WebView(this);
+        web.setBackgroundColor(Color.rgb(243, 246, 251));
         web.getSettings().setJavaScriptEnabled(true);
         web.getSettings().setDomStorageEnabled(true);
         web.getSettings().setAllowFileAccess(false);
         web.getSettings().setAllowContentAccess(false);
         web.getSettings().setJavaScriptCanOpenWindowsAutomatically(false);
+        web.getSettings().setSupportMultipleWindows(false);
+        web.getSettings().setBuiltInZoomControls(false);
         CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
-        web.setWebChromeClient(new WebChromeClient());
-        web.setWebViewClient(new WebViewClient(){
-            @Override public void onReceivedSslError(WebView view,SslErrorHandler handler,SslError error){handler.cancel();}
-            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
-                Uri url=request.getUrl(); Uri configured=Uri.parse(serverUrl);
-                if("https".equalsIgnoreCase(url.getScheme())&&url.getHost()!=null&&url.getHost().equalsIgnoreCase(configured.getHost()))return false;
-                if("https".equalsIgnoreCase(url.getScheme())){startActivity(new Intent(Intent.ACTION_VIEW,url));}
+        CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
+        web.addJavascriptInterface(new NativeBridge(), "ALSARH_NATIVE");
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (importCallback != null) importCallback.onReceiveValue(null);
+                importCallback = callback;
+                Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                picker.addCategory(Intent.CATEGORY_OPENABLE);
+                picker.setType("application/json");
+                picker.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json", "text/plain", "application/octet-stream"});
+                try {startActivityForResult(picker, PICK_IMPORT);return true;}
+                catch (Exception ex){importCallback=null;callback.onReceiveValue(null);return false;}
+            }
+        });
+        web.setWebViewClient(new WebViewClient() {
+            @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                if ("appassets.androidplatform.net".equalsIgnoreCase(uri.getHost())) return assets.shouldInterceptRequest(uri);
+                return super.shouldInterceptRequest(view, request);
+            }
+            @Override public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {handler.cancel();}
+            @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                if (LOCAL_URL.startsWith(uri.toString()) || uri.toString().startsWith("https://appassets.androidplatform.net/assets/")) return false;
+                Uri origin=Uri.parse(serverUrl);
+                if (!isLocal() && "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null && uri.getHost().equalsIgnoreCase(origin.getHost())) return false;
+                if ("https".equalsIgnoreCase(uri.getScheme())) {startActivity(new Intent(Intent.ACTION_VIEW, uri));return true;}
                 return true;
             }
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){
-                if(request.isForMainFrame()) android.widget.Toast.makeText(MainActivity.this,"تعذر الاتصال بخادم الصرح التعليمي. تحقق من الإنترنت.",android.widget.Toast.LENGTH_LONG).show();
+            @Override public void onReceivedError(WebView view, WebResourceRequest request, android.webkit.WebResourceError error) {
+                if (!isLocal() && request.isForMainFrame()) Toast.makeText(MainActivity.this, "تعذر الاتصال بالخادم. يمكنك العودة للتجربة المحلية من الإعدادات.", Toast.LENGTH_LONG).show();
             }
         });
         setContentView(web);
-        web.loadUrl(serverUrl);
     }
-    @Override public void onBackPressed(){if(web!=null&&web.canGoBack())web.goBack();else super.onBackPressed();}
-    @Override protected void onPause(){super.onPause();if(web!=null)CookieManager.getInstance().flush();}
-    @Override protected void onDestroy(){if(web!=null){web.destroy();web=null;}super.onDestroy();}
+
+    private String validatedHttps(String raw) {
+        try {
+            Uri uri = Uri.parse(raw.trim());
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getHost().isEmpty() || uri.getUserInfo()!=null || uri.getHost().equals("example.com")) throw new IllegalArgumentException();
+            if (uri.getQuery()!=null || uri.getFragment()!=null) throw new IllegalArgumentException();
+            return uri.getScheme()+"://"+uri.getAuthority();
+        }catch(Exception ignored){return null;}
+    }
+
+    private void chooseServer() {
+        EditText input=new EditText(this);
+        input.setSingleLine(true);
+        input.setTextDirection(View.TEXT_DIRECTION_LTR);
+        input.setText(serverUrl);
+        input.setHint("https://school.yourdomain.com");
+        input.setPadding(30,20,30,20);
+        new AlertDialog.Builder(this)
+            .setTitle("ربط منظومة الصرح التعليمي")
+            .setMessage("بعد نشر نسخة الويب والخادم على Hostinger، أدخل رابط HTTPS الحقيقي. تبقى بيانات الوضع المحلي محفوظة بشكل مستقل.")
+            .setView(input)
+            .setNegativeButton("إلغاء",(dialog,which)->{})
+            .setPositiveButton("اتصال",(dialog,which)->{
+                String target=validatedHttps(input.getText().toString());
+                if(target==null){Toast.makeText(this,"يرجى إدخال رابط HTTPS صحيح",Toast.LENGTH_LONG).show();return;}
+                serverUrl=target;
+                getPreferences(Context.MODE_PRIVATE).edit().putString("server_url", target).apply();
+                web.loadUrl(target);
+            }).show();
+    }
+
+    public final class NativeBridge {
+        @JavascriptInterface public void chooseServer() {runOnUiThread(()->MainActivity.this.chooseServer());}
+        @JavascriptInterface public void useOffline() {runOnUiThread(()->{
+            serverUrl="";
+            getPreferences(Context.MODE_PRIVATE).edit().remove("server_url").apply();
+            web.loadUrl(LOCAL_URL);
+        });}
+        @JavascriptInterface public void exportBackup(String data) {runOnUiThread(()->{
+            if(!isLocal())return;
+            if(data==null || data.length()>12*1024*1024){Toast.makeText(MainActivity.this,"النسخة كبيرة جداً",Toast.LENGTH_LONG).show();return;}
+            pendingBackup=data;
+            Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.setType("application/json");
+            i.putExtra(Intent.EXTRA_TITLE,"alsarh-local-backup.json");
+            startActivityForResult(i,EXPORT_JSON);
+        });}
+    }
+
+    @Override protected void onActivityResult(int req,int result,Intent data) {
+        super.onActivityResult(req,result,data);
+        if(req==PICK_IMPORT){
+            if(importCallback!=null)importCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result,data));
+            importCallback=null;
+        }else if(req==EXPORT_JSON){
+            if(result==RESULT_OK&&data!=null&&data.getData()!=null){
+                try(OutputStream out=getContentResolver().openOutputStream(data.getData())) {
+                    if(out==null)throw new IllegalStateException("Storage inaccessible");
+                    out.write(pendingBackup.getBytes(StandardCharsets.UTF_8));
+                    Toast.makeText(this,"تم حفظ النسخة الاحتياطية",Toast.LENGTH_LONG).show();
+                }catch(Exception ex){Toast.makeText(this,"فشل حفظ النسخة",Toast.LENGTH_LONG).show();}
+            }
+            pendingBackup="";
+        }
+    }
+    @Override public void onBackPressed() {if(web!=null&&web.canGoBack())web.goBack();else super.onBackPressed();}
+    @Override protected void onPause() {super.onPause();CookieManager.getInstance().flush();}
+    @Override protected void onDestroy() {if(web!=null){web.destroy();web=null;}super.onDestroy();}
 }

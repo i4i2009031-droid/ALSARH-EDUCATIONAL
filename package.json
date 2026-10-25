@@ -1,14 +1,14 @@
 {
   "name":"alsarh-educational-system",
   "private":true,
-  "version":"0.1.0",
+  "version":"0.2.0",
   "description":"الصرح التعليمي - منظومة التعليم والإدارة والحسابات",
   "engines":{"node":">=22.16.0 <23"},
   "scripts":{
     "start":"node --experimental-sqlite server/index.js",
     "dev":"node --experimental-sqlite server/index.js",
     "test":"node --experimental-sqlite --test tests/*.test.js",
-    "check":"node --check server/index.js && node --check web/app.js && node --check desktop/main.cjs",
+    "check":"node --check server/index.js && node --check web/app.js && node --check web/offline.js && node --check desktop/main.cjs",
     "android":"echo 'Build Android with GitHub Actions or Android Studio'",
     "windows":"echo 'Build Windows using GitHub Actions windows-build'"
   },

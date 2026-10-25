@@ -44,7 +44,8 @@ const icons={
  link:'<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2"/>',
 };
 const ic = (name,cl='')=>`<svg class="icon ${cl}" viewBox="0 0 24 24" aria-hidden="true">${icons[name]||icons.note}</svg>`;
-const logo = (cls='')=>`<img class="brand-logo ${cls}" src="/logo.svg" alt="شعار الصرح التعليمي">`;
+const logo = (cls='')=>`<img class="brand-logo ${cls}" src="${window.ALSARH_LOCAL_MODE?'logo.svg':'/logo.svg'}" alt="شعار الصرح التعليمي">`;
+const LOCAL=!!window.ALSARH_LOCAL_MODE;
 const modules={
  students:{title:'الطلاب',icon:'cap',color:'t-purple',sub:'السجلات الأكاديمية وبيانات أولياء الأمور',fields:['name','code','classId','guardianName','guardianPhone','guardianUserId','birthDate','status','notes'],primary:'name'},
  teachers:{title:'المعلمون والمعلمات',icon:'teacher',color:'t-blue',sub:'ملفات الكادر التعليمي وتخصصاته',fields:['name','specialty','phone','email','userId','status'],primary:'name'},
@@ -61,6 +62,14 @@ const modules={
  announcements:{title:'الإعلانات والتعاميم',icon:'bell',color:'t-rose',sub:'إعلانات المدرسة لجميع المستخدمين',fields:['title','body','classId','date','audience'],primary:'title'},
  inventory:{title:'المخزون والمستلزمات',icon:'inventory',color:'t-cyan',sub:'الكتب والزي والمواد والموجودات',fields:['name','sku','quantity','unit','price','notes'],primary:'name'},
  employees:{title:'الموظفون والرواتب',icon:'users',color:'t-slate',sub:'سجل الموظفين والرواتب الأساسية',fields:['name','jobTitle','phone','salary','status','notes'],primary:'name'},
+ curricula:{title:'المناهج والخطط',icon:'book',color:'t-blue',sub:'توزيع المناهج على الصفوف والمواد',fields:['title','classId','subjectId','year','description','status'],primary:'title'},
+ reviews:{title:'المراجعات الدراسية',icon:'check',color:'t-mint',sub:'مراجعات واختبارات قصيرة وروابط شرح',fields:['title','classId','subjectId','date','description','url','status'],primary:'title'},
+ questions:{title:'بنك الأسئلة',icon:'exam',color:'t-indigo',sub:'أسئلة وتصنيفها بحسب المادة والصف',fields:['question','classId','subjectId','options','solution','maxScore','difficulty','status'],primary:'question'},
+ transport:{title:'النقل المدرسي',icon:'school',color:'t-cyan',sub:'الحافلات والمسارات والسائقون',fields:['name','driverName','phone','capacity','route','status'],primary:'name'},
+ meetings:{title:'الاجتماعات',icon:'calendar',color:'t-orange',sub:'اللقاءات مع أولياء الأمور والكادر',fields:['title','classId','date','startTime','location','description','audience'],primary:'title'},
+ behavior:{title:'السلوك والانضباط',icon:'shield',color:'t-rose',sub:'سجل الملاحظات والتوجيه الطلابي',fields:['studentId','date','description','action','status'],primary:'studentId'},
+ libraryLoans:{title:'إعارة الكتب',icon:'book',color:'t-purple',sub:'تسجيل الكتب المستعارة وإعادتها',fields:['studentId','bookId','date','dueDate','status','notes'],primary:'studentId'},
+ salaryPlans:{title:'خطط الرواتب',icon:'wallet',color:'t-yellow',sub:'تخطيط رواتب الموظفين (غير مرحّلة محاسبيًا)',fields:['employeeId','amount','startDate','status','notes'],primary:'employeeId'},
 };
 const fields={
  name:['الاسم','text',true],code:['الرقم / الرمز','text'],classId:['الصف','select:classes'],guardianName:['اسم ولي الأمر','text'],guardianPhone:['رقم ولي الأمر','tel'],guardianUserId:['حساب ولي الأمر','users:guardian'],birthDate:['تاريخ الميلاد','date'],status:['الحالة','select:status'],notes:['ملاحظات','textarea'],
@@ -69,16 +78,17 @@ const fields={
  assignmentId:['الواجب','select:assignments'],studentId:['الطالب','select:students'],answer:['إجابة الطالب','textarea'],score:['الدرجة','number'],feedback:['ملاحظات التصحيح','textarea'],
  day:['اليوم','select:days'],startTime:['بداية الحصة','time'],endTime:['نهاية الحصة','time'],body:['التعميم','textarea'],audience:['الفئة المستهدفة','select:audience'],author:['المؤلف','text'],
  sku:['رمز الصنف','text'],quantity:['الكمية','number'],unit:['الوحدة','text'],price:['سعر الوحدة','number'],jobTitle:['الوظيفة','text'],salary:['الراتب','number'],
- amount:['المبلغ','number',true],feeId:['فاتورة القسط','select:fees',true],method:['طريقة الدفع','select:method'],category:['التصنيف','text'],due_date:['تاريخ الاستحقاق','date'],password:['كلمة المرور','password',true],role:['الصلاحية','select:roles',true],schoolName:['اسم المؤسسة','text',true],currency:['العملة','select:currency']
+ amount:['المبلغ','number',true],feeId:['فاتورة القسط','select:fees',true],method:['طريقة الدفع','select:method'],category:['التصنيف','text'],due_date:['تاريخ الاستحقاق','date'],password:['كلمة المرور','password',true],role:['الصلاحية','select:roles',true],schoolName:['اسم المؤسسة','text',true], currency:['العملة','select:currency'],question:['نص السؤال','textarea',true],options:['الخيارات','textarea'],solution:['الحل المقترح','textarea'],difficulty:['المستوى','select:difficulty'],driverName:['اسم السائق','text'],capacity:['السعة','number'],route:['المسار','text'],location:['المكان','text'],action:['الإجراء المتخذ','textarea'],bookId:['الكتاب','select:books'],employeeId:['الموظف','select:employees'],startDate:['تاريخ البداية','date']
 };
 const palette=['t-rose','t-blue','t-green','t-orange','t-purple','t-cyan','t-yellow','t-indigo','t-mint','t-pink','t-slate','t-teal'];
 const labels={present:'حاضر',absent:'غائب',late:'متأخر',excused:'بعذر',active:'نشط',inactive:'موقوف',cash:'نقدًا',bank:'البنك'};
-const options={status:[['active','نشط'],['inactive','موقوف'],['present','حاضر'],['absent','غائب'],['late','متأخر'],['excused','بعذر']],days:[['الأحد','الأحد'],['الإثنين','الإثنين'],['الثلاثاء','الثلاثاء'],['الأربعاء','الأربعاء'],['الخميس','الخميس'],['الجمعة','الجمعة'],['السبت','السبت']],audience:[['all','الجميع'],['teachers','المعلمون'],['parents','أولياء الأمور'],['students','الطلاب']],method:[['cash','نقدي'],['bank','بنك']],roles:[['admin','مدير النظام'],['principal','مدير المدرسة'],['accountant','محاسب'],['teacher','معلم / معلمة'],['guardian','ولي أمر'],['student','طالب']],currency:[['YER','ريال يمني'],['SAR','ريال سعودي'],['USD','دولار أمريكي']]};
+const options={status:[['active','نشط'],['inactive','موقوف'],['present','حاضر'],['absent','غائب'],['late','متأخر'],['excused','بعذر']],days:[['الأحد','الأحد'],['الإثنين','الإثنين'],['الثلاثاء','الثلاثاء'],['الأربعاء','الأربعاء'],['الخميس','الخميس'],['الجمعة','الجمعة'],['السبت','السبت']],audience:[['all','الجميع'],['teachers','المعلمون'],['parents','أولياء الأمور'],['students','الطلاب']],method:[['cash','نقدي'],['bank','بنك']],roles:[['admin','مدير النظام'],['principal','مدير المدرسة'],['accountant','محاسب'],['teacher','معلم / معلمة'],['guardian','ولي أمر'],['student','طالب']],currency:[['YER','ريال يمني'],['SAR','ريال سعودي'],['USD','دولار أمريكي']],difficulty:[['easy','سهل'],['medium','متوسط'],['hard','متقدم']]};
 const navItems=[['home','الرئيسية','home'],['students','الطلاب','cap'],['teachers','المعلمون','teacher'],['lessons','الدروس','book'],['assignments','الواجبات','clipboard'],['finance','الحسابات','calculator'],['reports','التقارير','chart'],['users','المستخدمون','users'],['settings','الإعدادات','settings']];
 let state={user:null,page:'home',cache:{},users:[],overview:{counts:{}},search:'',sheet:null,financeTab:'fees',loading:false,first:false};
 let toastTimer=0;
 function toast(message,bad=false){const x=$('#toast');x.textContent=message;x.className='visible'+(bad?' bad':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>x.className='',3500);}
 async function api(path,opts={}){
+  if(LOCAL)return window.ALSARH_LOCAL_API(path,opts);
   const res=await fetch('/api'+path,{credentials:'same-origin',...opts,headers:{...(opts.body?{'Content-Type':'application/json'}:{}),...(opts.headers||{})}});
   const obj=await res.json().catch(()=>({error:'فشل الاتصال بالخادم'}));
   if(!res.ok)throw new Error(obj.error||`حدث خطأ (${res.status})`);return obj;
@@ -94,38 +104,40 @@ function renderAuth(){
  <div class="login-form-side"><div class="login-panel"><div class="logo-login-mobile">${logo()}</div><div class="eyebrow">ALSARH EDUCATIONAL SYSTEM</div>
  <h2>${state.first?'تهيئة مؤسسة جديدة':'مرحبًا بعودتك'}</h2><p>${state.first?'أنشئ حساب المدير الأول لضبط المدرسة وربط جميع الأقسام.':'سجّل دخولك للوصول إلى مدرستك وبياناتك بصلاحيات آمنة.'}</p>
  <form id="auth-form" class="stack">${state.first?`${fieldHTML('schoolName',{required:true})}${fieldHTML('name',{required:true,customLabel:'اسم مدير النظام'})}`:''}${fieldHTML('email',{required:true})}${fieldHTML('password',{required:true})}${state.first?fieldHTML('currency',{value:'YER'}):''}
- <button class="primary-btn wide" type="submit">${state.first?'إنشاء المؤسسة والبدء':'تسجيل الدخول'} ${ic('arrow')}</button></form>
+ <button class="primary-btn wide" type="submit">${state.first?'إنشاء المؤسسة والبدء':'تسجيل الدخول'} ${ic('arrow')}</button></form>${LOCAL?`<div class="offline-note">${ic('shield')} تجربة محلية تعمل دون إنترنت؛ السجلات محفوظة على هذا الجهاز فقط.</div>${state.first?`<button class="secondary-btn wide" data-action="import-pick">${ic('download')} استعادة نسخة احتياطية سابقة</button>`:''}`:''}
  <p class="foot-note">الصرح التعليمي © ${new Date().getFullYear()} · تصميم عربي متجاوب للمدرسة والطلاب وأولياء الأمور</p></div></div></div>`;
 }
 function permitted(page){
  const role=state.user?.role;
  if(!role)return false;
  if(page==='home'||page==='settings'||page==='more'||page==='reports')return true;
+ if(page==='guardians')return ['admin','principal','accountant'].includes(role);
  if(page==='finance')return ['admin','principal','accountant','guardian'].includes(role);
  if(page==='users')return ['admin','principal','accountant'].includes(role);
  if(page==='audit')return role==='admin';
  if(page==='profile')return true;
  if(modules[page]){
   if(['admin','principal'].includes(role))return true;
-  if(role==='accountant')return ['students','teachers','classes','inventory','employees','announcements'].includes(page);
-  if(role==='teacher')return !['inventory','employees'].includes(page);
-  if(role==='guardian'||role==='student')return !['teachers','inventory','employees'].includes(page);
+  if(role==='accountant')return ['students','teachers','classes','inventory','employees','announcements','salaryPlans'].includes(page);
+  if(role==='teacher')return !['inventory','employees','transport','salaryPlans'].includes(page);
+  if(role==='guardian'||role==='student')return !['teachers','inventory','employees','transport','salaryPlans','questions'].includes(page);
  }
  return false;
 }
 function features(){
- const order=['students','teachers','guardians','lessons','exams','assignments','attendance','schedule','finance','inventory','reports','books','classes','subjects','grades','submissions','announcements','employees'];
- return order.map(x=>x==='guardians'?{key:'guardians',title:'أولياء الأمور',icon:'guardian',color:'t-green'}:x==='finance'?{key:'finance',title:'الحسابات المالية',icon:'calculator',color:'t-yellow'}:x==='reports'?{key:'reports',title:'التقارير',icon:'chart',color:'t-purple'}:{key:x,...modules[x]}).filter(x=>x?.title&&permitted(x.key)||x?.key==='guardians'&&permitted('students'));
+ const order=['students','teachers','guardians','lessons','exams','assignments','attendance','schedule','finance','inventory','reports','books','classes','subjects','grades','submissions','announcements','curricula','reviews','questions','behavior','libraryLoans','meetings','transport','employees','salaryPlans'];
+ return order.map(x=>x==='guardians'?{key:'guardians',title:'أولياء الأمور',icon:'guardian',color:'t-green'}:x==='finance'?{key:'finance',title:'الحسابات المالية',icon:'calculator',color:'t-yellow'}:x==='reports'?{key:'reports',title:'التقارير',icon:'chart',color:'t-purple'}:{key:x,...modules[x]}).filter(x=>x?.title&&permitted(x.key));
 }
 function renderShell(){const u=state.user;const role=names[u.role]||u.role;
  $('#root').innerHTML=`<div class="app"><aside class="sidebar"><div class="side-head">${logo()}<div><strong>الصرح التعليمي</strong><span>ALSARH EDUCATIONAL</span></div></div><nav class="side-nav">${navItems.filter(x=>permitted(x[0])).map(([id,title,icon])=>`<button data-page="${id}" class="${state.page===id?'active':''}">${ic(icon)} ${title}</button>`).join('')}<button data-page="more">${ic('more')} جميع الأقسام</button></nav><div class="side-foot"><div class="user-pill"><div class="avatar">${e(u.name.slice(0,1))}</div><div><strong>${e(u.name)}</strong><span>${e(role)}</span></div></div><button class="secondary-btn wide" style="margin-top:10px" data-action="logout">${ic('logout')} تسجيل الخروج</button></div></aside>
- <div class="main"><header class="topbar"><div class="title">${logo()}<div>الصرح التعليمي<small>${e(u.schoolName)}</small></div></div><div class="top-actions"><button aria-label="الرسائل والتعاميم" data-page="announcements">${ic('bell')}</button><button aria-label="الإعدادات" data-page="settings">${ic('settings')}</button></div></header><main class="main-content" id="content"></main></div>
+ <div class="main"><header class="topbar"><div class="title">${logo()}<div>الصرح التعليمي<small>${e(u.schoolName)}</small></div></div>${LOCAL?'<span class="offline-pill">● تجربة محلية</span>':''}<div class="top-actions"><button aria-label="الرسائل والتعاميم" data-page="announcements">${ic('bell')}</button><button aria-label="الإعدادات" data-page="settings">${ic('settings')}</button></div></header><main class="main-content" id="content"></main></div>
  <nav class="bottom-nav">${[['home','الرئيسية','home'],['students','الطلاب','cap'],['lessons','الدروس','book'],['reports','التقارير','chart'],['more','المزيد','more']].filter(x=>permitted(x[0])).map(([id,label,icon])=>`<button data-page="${id}" class="${state.page===id?'active':''}">${ic(icon)}<span>${label}</span></button>`).join('')}</nav></div><div id="sheet-mount"></div>`;
  renderPage();
 }
 function renderPage(){if(!state.user)return;const target=$('#content');if(!target)return;
  if(state.page==='home')target.innerHTML=homeHTML();
- else if(state.page==='more'||state.page==='guardians')target.innerHTML=moreHTML();
+ else if(state.page==='more')target.innerHTML=moreHTML();
+ else if(state.page==='guardians')target.innerHTML=guardiansHTML();
  else if(state.page==='finance')target.innerHTML=financeHTML();
  else if(state.page==='reports')target.innerHTML=reportsHTML();
  else if(state.page==='users')target.innerHTML=usersHTML();
@@ -147,19 +159,20 @@ function homeHTML(){const counts=state.overview.counts||{},f=state.overview.fina
  <div class="cols2"><section class="panel"><h3>${ic('bell')} أحدث التعاميم</h3>${announcement.length?`<div class="panel-list">${announcement.map(a=>`<div class="panel-item"><div><strong>${e(a.title)}</strong><br><span>${e(a.body?.slice(0,110))}</span></div></div>`).join('')}</div>`:'<p>لا توجد تعاميم منشورة حاليًا.</p>'}<button class="secondary-btn" style="margin-top:16px" data-page="announcements">عرض التعاميم ${ic('arrow')}</button></section>
  <section class="panel"><h3>${ic('chart')} ملخص المتابعة</h3><div class="panel-list"><div class="panel-item"><strong>الحاضرون اليوم</strong><span>${fm(state.overview.attendanceToday?.present||0)} طالب</span></div><div class="panel-item"><strong>الغائبون اليوم</strong><span>${fm(state.overview.attendanceToday?.absent||0)} طالب</span></div>${financeOK?`<div class="panel-item"><strong>الرسوم المحصلة</strong><span>${fm(f.collected)} ${e(state.user.currency)}</span></div>`:''}</div></section></div>`;
 }
+function guardiansHTML(){const guardians=state.users.filter(u=>u.role==='guardian');return `${titleBar('أولياء الأمور','حسابات أولياء الأمور والأبناء المرتبطون بها',state.user.role==='admin'?`<button class="primary-btn" data-add="users">${ic('plus')} إضافة حساب</button>`:'')}<div class="data-list">${guardians.length?guardians.map(u=>{const children=(state.cache.students||[]).filter(s=>s.guardianUserId===u.id);return `<div class="data-item"><div><strong>${e(u.name)}</strong><div class="record-sub">${e(u.email)} · الأبناء: ${children.map(s=>e(s.name)).join('، ')||'لا يوجد ارتباط بعد'}</div></div><span class="badge">${children.length} أبناء</span></div>`;}).join(''):emptyText('أضف حساب ولي الأمر من قسم المستخدمين، ثم اربطه بالطالب من ملفه')}</div>`;}
 function moreHTML(){return `<div class="heading-row"><div><h2 class="section-title">القائمة الرئيسية</h2><p class="section-sub">جميع أقسام المنظومة بحسب صلاحية الحساب</p></div></div><div class="feature-grid">${features().map(card).join('')}${permitted('users')?card({key:'users',title:'حسابات المستخدمين',icon:'users',color:'t-slate'}):''}${permitted('audit')?card({key:'audit',title:'سجل العمليات',icon:'shield',color:'t-slate'}):''}${card({key:'settings',title:'الإعدادات',icon:'settings',color:'t-slate'})}</div>`;}
 function titleBar(title,subtitle,action=''){return `<div class="heading-row"><div><h2 class="section-title">${e(title)}</h2><p class="section-sub">${e(subtitle||'')}</p></div>${action}</div>`;}
 function moduleHTML(type){const m=modules[type],items=(state.cache[type]||[]).filter(x=>JSON.stringify(x).toLowerCase().includes(state.search.toLowerCase()));const add=canWrite(type);
  return `${titleBar(m.title,m.sub,add?`<button class="primary-btn" data-add="${type}">${ic('plus')} إضافة جديد</button>`:'')}
  <div class="toolbar"><div class="search-wrap">${ic('search')}<input aria-label="بحث في السجلات" data-search placeholder="ابحث في ${e(m.title)} ..." value="${e(state.search)}"></div><button class="secondary-btn" data-action="refresh">${ic('report')} تحديث</button></div>
- <div class="data-list" id="records-list">${renderRecords(type,items)}</div><p class="foot-note">${fm(items.length)} سجل${state.search?' نتيجة بحث':''} · يتم حفظ البيانات مباشرة في خادم المؤسسة</p>`;
+ <div class="data-list" id="records-list">${renderRecords(type,items)}</div><p class="foot-note">${fm(items.length)} سجل${state.search?' نتيجة بحث':''} · ${LOCAL?'حفظ محلي على الجهاز دون الحاجة للإنترنت':'يتم حفظ البيانات في خادم المؤسسة'}</p>`;
 }
 function lookup(type,id){if(!id)return '—';if(type==='users')return state.users.find(x=>x.id===id)?.name||id;return (state.cache[type]||[]).find(x=>x.id===id)?.name||(state.cache[type]||[]).find(x=>x.id===id)?.title||'غير معروف';}
-function showField(key,value){if(value===undefined||value===null||value==='')return '';if(key==='classId')return `الصف: ${lookup('classes',value)}`;if(key==='subjectId')return `المادة: ${lookup('subjects',value)}`;if(key==='studentId')return `الطالب: ${lookup('students',value)}`;if(key==='examId')return `الاختبار: ${lookup('exams',value)}`;if(key==='assignmentId')return `الواجب: ${lookup('assignments',value)}`;if(key==='guardianUserId'||key==='teacherUserId')return lookup('users',value);if(key==='date'||key==='dueDate')return date(value);return String(value).slice(0,85);}
+function showField(key,value){if(value===undefined||value===null||value==='')return '';if(key==='classId')return `الصف: ${lookup('classes',value)}`;if(key==='subjectId')return `المادة: ${lookup('subjects',value)}`;if(key==='studentId')return `الطالب: ${lookup('students',value)}`;if(key==='bookId')return `الكتاب: ${lookup('books',value)}`;if(key==='employeeId')return `الموظف: ${lookup('employees',value)}`;if(key==='examId')return `الاختبار: ${lookup('exams',value)}`;if(key==='assignmentId')return `الواجب: ${lookup('assignments',value)}`;if(key==='guardianUserId'||key==='teacherUserId')return lookup('users',value);if(key==='date'||key==='dueDate')return date(value);return String(value).slice(0,85);}
 function renderRecords(type,items){if(!items.length)return `<div class="empty">${ic(modules[type].icon)}<h3>لا توجد بيانات بعد</h3><p>ابدأ بإضافة أول سجل لهذا القسم، أو جرّب بحثًا آخر.</p></div>`;
  return items.map(x=>{const primary=showField(modules[type].primary,x[modules[type].primary])||'سجل بدون اسم';const sub=modules[type].fields.filter(k=>k!==modules[type].primary&&x[k]&&k!=='notes'&&k!=='description'&&k!=='body'&&k!=='instructions').slice(0,3).map(k=>showField(k,x[k])).join(' · ');
  return `<div class="data-item"><div class="metric-row"><div class="avatar">${e(primary.slice(0,1))}</div><div><div class="record-title">${e(primary)}</div><div class="record-sub">${e(sub)}</div></div></div><div class="action-btns">${type==='students'?`<button class="icon-btn" title="ملف الطالب" data-profile="${e(x.id)}">${ic('eye')}</button>`:''}${canWrite(type)?`<button class="icon-btn" title="تعديل" data-edit="${type}:${e(x.id)}">${ic('edit')}</button>`:''}</div></div>`;}).join('');}
-function canWrite(type){const r=state.user?.role;if(['admin','principal'].includes(r))return true;if(r==='accountant')return ['inventory','employees'].includes(type);if(r==='teacher')return ['lessons','books','assignments','exams','grades','attendance','schedule','announcements'].includes(type);return r==='student'&&type==='submissions';}
+function canWrite(type){const r=state.user?.role;if(['admin','principal'].includes(r))return true;if(r==='accountant')return ['inventory','employees','salaryPlans'].includes(type);if(r==='teacher')return ['lessons','books','assignments','exams','grades','attendance','schedule','announcements','curricula','reviews','questions','meetings','behavior','libraryLoans'].includes(type);return r==='student'&&type==='submissions';}
 function financeHTML(){const role=state.user.role,allowed=['admin','principal','accountant'].includes(role),tab=state.financeTab;const fees=state.cache.fees||[],payments=state.cache.payments||[],expenses=state.cache.expenses||[],f=state.overview.finance||{};
  const tabs=[['fees','الأقساط'],['payments','التحصيلات'],...(allowed?[['expenses','المصروفات'],['trial','ميزان المراجعة']]:[])];
  return `${titleBar('الحسابات المالية','رسوم الطلاب، التحصيل، المصروفات والقيود المحاسبية')}
@@ -184,12 +197,14 @@ function reportsHTML(){const counts=state.overview.counts||{},classItems=(state.
  <p class="help">التقارير تتضمن فقط السجلات المسموح لك برؤيتها. يتم الاحتفاظ بجميع العمليات في قاعدة بيانات المؤسسة.</p>`;
 }
 function usersHTML(){return `${titleBar('إدارة المستخدمين','صلاحيات مستقلة للمدير والمعلم والمحاسب وولي الأمر والطالب',state.user.role==='admin'?`<button class="primary-btn" data-add="users">${ic('plus')} إنشاء حساب</button>`:'')}
- <div class="data-list">${state.users.map(u=>`<div class="data-item"><div class="metric-row"><div class="avatar">${e(u.name.slice(0,1))}</div><div><div class="record-title">${e(u.name)}</div><div class="record-sub">${e(u.email)}</div></div></div><span class="badge">${e(names[u.role]||u.role)}</span></div>`).join('')||emptyText('لا يوجد مستخدمون')}</div><p class="help">لا تُشارك بيانات دخول الإدارة. أنشئ حسابًا منفصلًا لكل مستخدم، وحدد صلاحياته.</p>`;}
-function settingsHTML(){return `${titleBar('إعدادات الحساب','بيانات المؤسسة والحماية والنسخ الاحتياطية')}
+ <div class="data-list">${state.users.map(u=>`<div class="data-item"><div class="metric-row"><div class="avatar">${e(u.name.slice(0,1))}</div><div><div class="record-title">${e(u.name)}</div><div class="record-sub">${e(u.email)}</div></div></div><div class="action-btns"><span class="badge">${e(names[u.role]||u.role)}</span>${state.user.role==='admin'&&u.id!==state.user.id?`<button title="تعيين كلمة مرور" class="icon-btn" data-reset-password="${e(u.id)}">${ic('settings')}</button>`:''}</div></div>`).join('')||emptyText('لا يوجد مستخدمون')}</div><p class="help">لا تُشارك بيانات دخول الإدارة. أنشئ حسابًا منفصلًا لكل مستخدم، وحدد صلاحياته.</p>`;}
+function settingsHTML(){return `${titleBar('إعدادات الحساب','إدارة المؤسسة وحماية البيانات وتجهيز نسخة Hostinger')}
  <section class="panel"><h3>${ic('school')} المؤسسة</h3><div class="panel-item"><strong>اسم المؤسسة</strong><span>${e(state.user.schoolName)}</span></div><div class="panel-item" style="margin-top:9px"><strong>عملة النظام</strong><span>${e(state.user.currency)}</span></div><div class="panel-item" style="margin-top:9px"><strong>مستوى الصلاحية</strong><span>${e(names[state.user.role]||state.user.role)}</span></div></section>
- <section class="panel"><h3>${ic('shield')} أمان حسابك</h3><p>يمكنك تغيير كلمة المرور الحالية؛ عند تغييرها سيتم تسجيل الخروج من جميع الجلسات.</p><button class="secondary-btn" data-add="password">${ic('settings')} تغيير كلمة المرور</button></section>
- ${state.user.role==='admin'?`<section class="panel"><h3>${ic('download')} نسخة احتياطية</h3><p>تنزيل نسخة JSON من سجلات المؤسسة والدفتر المحاسبي، لتخزينها في مكان آمن. استعادة النسخ تحتاج أداة إدارية منفصلة.</p><button class="primary-btn" data-action="backup">${ic('download')} تنزيل نسخة بيانات</button></section>`:''}
- <section class="panel"><h3>عن المنظومة</h3><p>الصرح التعليمي · ALSARH EDUCATIONAL SYSTEM<br>المنظومة المتكاملة للتعليم والإدارة والحسابات<br>إصدار أولي 0.1.0 - تجربة واقعية ببيانات على خادم مخصص</p><button class="danger-btn" data-action="logout">${ic('exit')} تسجيل الخروج</button></section>`;}
+ ${LOCAL?`<section class="panel"><h3>${ic('shield')} وضع التجربة المحلي</h3><p>يعمل التطبيق الآن دون خادم أو إنترنت. بيانات هذه المؤسسة محفوظة على هذا الجهاز فقط؛ إذا حذفت التطبيق أو مسحت بياناته فقد تفقدها. صدّر نسخة احتياطية بانتظام ولا تستخدم بيانات طلاب حقيقية أثناء التطوير.</p>${state.user.role==='admin'?`<button class="secondary-btn" data-action="demo-seed">${ic('plus')} إضافة بيانات نموذجية لمؤسسة فارغة</button>`:''}<div class="offline-note">عند الانتهاء من التطوير، ننقل الملفات إلى Hostinger ثم نستورد نسخة البيانات داخل الخادم. حسابات المستخدمين المنقولة ستحتاج كلمة مرور جديدة.</div>${window.ALSARH_NATIVE?`<button class="secondary-btn" data-action="connect-server">${ic('link')} ربط خادم HTTPS لاحقًا</button>`:location.protocol==='alsarh:'?`<div class="field"><label for="alsarh-server-url">رابط خادم HTTPS بعد نشر النظام</label><input id="alsarh-server-url" placeholder="https://school.yourdomain.com" type="url" dir="ltr"></div><button class="secondary-btn" data-action="connect-server">${ic('link')} ربط الخادم لاحقًا</button>`:''}</section>`:''}
+ <section class="panel"><h3>${ic('shield')} أمان الحساب</h3><p>تغيير كلمة المرور الحالية، وإنشاء كلمة مرور مستقلة لكل شخص لديه صلاحية.</p><button class="secondary-btn" data-add="password">${ic('settings')} تغيير كلمة المرور</button></section>
+ ${state.user.role==='admin'?`<section class="panel"><h3>${ic('download')} النسخ الاحتياطي ونقل البيانات</h3><p>${LOCAL?'احفظ ملفًا مستقلًا من معلوماتك الأكاديمية والحسابات والقيود المالية وسجلات المستخدمين. احفظه بمكان آمن؛ يتضمن معلومات حساسة ولا يتضمن كلمات المرور بصيغتها الأصلية.':'يمكن استيراد نسخة جهاز التجربة إلى خادم جديد وفارغ. عملية الاستيراد تتطلب مدير نظام وتحفظ سجلات الحسابات.'}</p><div class="action-row"><button class="primary-btn" data-action="backup">${ic('download')} تصدير نسخة JSON</button><button class="secondary-btn" data-action="import-pick">${ic('plus')} ${LOCAL?'استعادة نسخة سابقة':'استيراد نسخة الجهاز'}</button></div><input id="alsarh-backup-file" type="file" accept=".json,application/json" hidden></section>`:''}
+ ${!LOCAL&&window.ALSARH_NATIVE?`<section class="panel"><h3>تجربة دون إنترنت</h3><p>يمكنك العودة للوضع المحلي دون حذف بيانات الخادم.</p><button class="secondary-btn" data-action="use-offline">العودة للوضع المحلي</button></section>`:''}
+ <section class="panel"><h3>عن المنظومة</h3><p>الصرح التعليمي · ALSARH EDUCATIONAL SYSTEM<br>المنظومة المتكاملة للتعليم والإدارة والحسابات<br>الإصدار 0.2.0 · ${LOCAL?'وضع محلي تجريبي':'خادم المؤسسة'}</p><button class="danger-btn" data-action="logout">${ic('exit')} تسجيل الخروج</button></section>`;}
 function auditHTML(){return `${titleBar('سجل التدقيق','آخر التعديلات على بيانات المؤسسة')}<div class="data-list">${(state.cache.audit||[]).map(x=>`<div class="data-item"><div><div class="record-title">${e(x.userName)} · ${e(x.action)}</div><div class="record-sub">${e(x.entity)} · ${e(x.entity_id.slice(0,8))}</div></div><span class="record-sub">${date(x.created_at)}</span></div>`).join('')||emptyText('لا توجد عمليات مسجلة')}</div>`;}
 function profileHTML(){const id=state.profileId,x=(state.cache.students||[]).find(s=>s.id===id);if(!x)return emptyText('لم يتم العثور على الطالب');
  const attend=(state.cache.attendance||[]).filter(r=>r.studentId===id),grades=(state.cache.grades||[]).filter(r=>r.studentId===id),fees=(state.cache.fees||[]).filter(r=>r.student_id===id);
@@ -213,7 +228,8 @@ function fieldHTML(id,opts={}){
 }
 function renderSheet(){const m=$('#sheet-mount');if(!m)return;const s=state.sheet;if(!s){m.innerHTML='';return;}
  const isEdit=!!s.id;let content='',title='';
- if(s.type==='users'){title='إنشاء حساب مستخدم';content=['name','email','password','role','studentId'].map(k=>fieldHTML(k,{required:k!=='studentId'})).join('');}
+ if(s.type==='reset-password'){title='تعيين كلمة مرور جديدة';content=`<div class="field"><label>كلمة المرور الجديدة (10 أحرف على الأقل)</label><input type="password" name="password" minlength="10" autocomplete="new-password" required></div>`;}
+ else if(s.type==='users'){title='إنشاء حساب مستخدم';content=['name','email','password','role','studentId'].map(k=>fieldHTML(k,{required:k!=='studentId'})).join('');}
  else if(s.type==='password'){title='تغيير كلمة المرور';content=`${fieldHTML('password',{customLabel:'كلمة المرور الحالية'})}<div class="field"><label>كلمة المرور الجديدة *</label><input type="password" name="newPassword" minlength="10" required autocomplete="new-password"></div>`;}
  else if(['fee','payment','expense'].includes(s.type)){
    title=s.type==='fee'?'إصدار قسط دراسي':s.type==='payment'?'سداد قسط': 'تسجيل مصروف';
@@ -229,7 +245,7 @@ function renderSheet(){const m=$('#sheet-mount');if(!m)return;const s=state.shee
 async function refresh(){
  const roles=state.user.role;state.loading=true;
  try {
-  const list=new Set(features().map(x=>x.key).filter(k=>modules[k]));['classes','students','announcements','attendance','grades','exams','assignments','subjects'].forEach(x=>list.add(x));
+  const list=new Set(features().map(x=>x.key).filter(k=>modules[k]));['classes','students','announcements','attendance','grades','exams','assignments','subjects','books','employees'].forEach(x=>list.add(x));
   await Promise.all([...list].map(async type=>{if(!permitted(type))return;try{const r=await api('/data/'+type);state.cache[type]=r.items;}catch{state.cache[type]=[];}}));
   if(['admin','principal','accountant'].includes(roles)){try{state.users=(await api('/users')).items;}catch{state.users=[];}}
   if(permitted('finance'))await refreshFinance();
@@ -242,13 +258,14 @@ async function refreshFinance(){const allowed=['admin','principal','accountant']
   try{const r=await api('/finance/'+name);state.cache[name==='trial-balance'?'trial':name]=r.items;if(name==='trial-balance')state.cache.balanced=r.balanced;}catch{state.cache[name==='trial-balance'?'trial':name]=[];}
  }));
 }
-async function navigate(page){if(!permitted(page)&&page!=='guardians'){toast('هذا القسم غير متاح لصلاحية حسابك',true);return;}state.page=page==='guardians'?'students':page;state.search='';if(page==='finance')await refreshFinance();if(page==='reports')state.overview=await api('/overview');renderPage();window.scrollTo({top:0,behavior:'instant'});}
+async function navigate(page){if(!permitted(page)){toast('هذا القسم غير متاح لصلاحية حسابك',true);return;}state.page=page;state.search='';if(page==='finance')await refreshFinance();if(page==='reports')state.overview=await api('/overview');renderPage();window.scrollTo({top:0,behavior:'instant'});}
 async function reloadData(){await refresh();toast('تم تحديث البيانات');}
 function printReceipt(id){const p=(state.cache.payments||[]).find(x=>x.id===id);if(!p)return;const f=(state.cache.fees||[]).find(x=>x.id===p.fee_id),s=f?.studentName||'—';const doc=`<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>سند قبض ${e(id.slice(0,8))}</title><style>body{font-family:Tahoma,Arial;padding:25px;color:#092e62}header{text-align:center;border-bottom:2px solid #d5a544;padding:12px}main{padding:30px}p{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding:12px}footer{text-align:center;margin-top:30px}</style><header><h2>الصرح التعليمي</h2><div>${e(state.user.schoolName)}</div><h3>سند قبض رسوم دراسية</h3></header><main><p><b>رقم السند</b><span>${e(id.slice(0,8).toUpperCase())}</span></p><p><b>الطالب</b><span>${e(s)}</span></p><p><b>التاريخ</b><span>${date(p.created_at)}</span></p><p><b>المبلغ</b><strong>${fm(p.amount)} ${e(state.user.currency)}</strong></p><p><b>طريقة الدفع</b><span>${e(p.method==='bank'?'بنك':'نقدي')}</span></p></main><footer>إيصال صادر من منظومة الصرح التعليمي</footer><script>window.onload=()=>window.print()<\/script></html>`;const win=window.open('','_blank','width=720,height=850');if(win){win.document.write(doc);win.document.close();}else toast('اسمح بفتح نافذة الطباعة',true);}
 async function submitSheet(form){const s=state.sheet;if(!s)return;const btn=form.querySelector('[type=submit]');btn.disabled=true;const values=Object.fromEntries(new FormData(form).entries());
- for(const [k,v]of Object.entries(values)){if(v==='')delete values[k];else if(['amount','score','quantity','price','salary','maxScore'].includes(k))values[k]=Number(v);}
+ for(const [k,v]of Object.entries(values)){if(v==='')delete values[k];else if(['amount','score','quantity','price','salary','maxScore','capacity'].includes(k))values[k]=Number(v);}
  try{
-  if(s.type==='users') {if(values.role==='student'&&!values.studentId)throw new Error('اختر الطالب المرتبط بهذا الحساب');await post('/users',values);}
+  if(s.type==='reset-password'){await post('/users/'+s.id+'/password',{password:values.password});}
+  else if(s.type==='users') {if(values.role==='student'&&!values.studentId)throw new Error('اختر الطالب المرتبط بهذا الحساب');await post('/users',values);}
   else if(s.type==='password'){await post('/change-password',{currentPassword:values.password,newPassword:values.newPassword});state.sheet=null;state.user=null;state.first=false;renderAuth();toast('تم تغيير كلمة المرور. سجّل دخولك مجددًا');return;}
   else if(['fee','payment','expense'].includes(s.type)){const target=s.type==='fee'?'fees':s.type==='payment'?'payments':'expenses';await post('/finance/'+target,{...values,idempotencyKey:crypto.randomUUID()});}
   else{await post('/data/'+s.type+(s.id?'/'+s.id:''),{data:values},s.id?'PATCH':'POST');}
@@ -271,10 +288,17 @@ async function handleAction(el){
  if(action==='refresh'){await reloadData();return;}
  if(action==='reload'){location.reload();return;}
  if(action==='print'){window.print();return;}
- if(action==='backup'){try{const res=await fetch('/api/export');if(!res.ok)throw Error('تعذر تصدير البيانات');const blob=await res.blob();const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='alsarh-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);toast('تم تنزيل نسخة البيانات');}catch(err){toast(err.message,true);}return;}
+ if(action==='backup'){try{const data=await api('/export');const str=JSON.stringify(data,null,2);if(LOCAL&&window.ALSARH_NATIVE?.exportBackup){window.ALSARH_NATIVE.exportBackup(str);toast('اختر مكان حفظ النسخة الاحتياطية');}else{const blob=new Blob([str],{type:'application/json'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download='alsarh-'+(LOCAL?'offline':'server')+'-backup-'+today()+'.json';document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);toast('تم تجهيز ملف النسخة الاحتياطية');}}catch(err){toast(err.message,true);}return;}
+ if(action==='import-pick'){const field=$('#alsarh-backup-file');if(field){field.value='';field.click();}else {const f=document.createElement('input');f.type='file';f.accept='.json,application/json';f.id='alsarh-backup-file';f.hidden=true;document.body.append(f);f.click();}return;}
+ if(action==='demo-seed'){if(!LOCAL)return;if(!confirm('ستضاف بيانات مدرسية نموذجية للعرض، ولا تصلح كسجلات حقيقية. المتابعة؟'))return;try{await post('/demo-seed',{});await refresh();toast('أُضيفت البيانات النموذجية بنجاح');}catch(err){toast(err.message,true);}return;}
+ if(action==='connect-server'){if(window.ALSARH_NATIVE?.chooseServer){window.ALSARH_NATIVE.chooseServer();}else if(location.protocol==='alsarh:'){const url=($('#alsarh-server-url')?.value||'').trim();if(!/^https:\/\/[a-z0-9.-]+(?::\d+)?\/?$/i.test(url)){toast('أدخل رابط HTTPS صحيحًا',true);return;}location.href='alsarh-config://'+encodeURIComponent(url);}else toast('الربط متاح من تطبيق أندرويد أو ويندوز');return;}
+ if(action==='use-offline'){if(window.ALSARH_NATIVE?.useOffline)window.ALSARH_NATIVE.useOffline();else if(location.protocol==='https:')location.href='alsarh-offline://home';return;}
 }
 document.addEventListener('click',evt=>{const el=evt.target.closest('button,[data-action].sheet-overlay');if(el?.classList.contains('sheet-overlay')&&evt.target!==el)return;if(el)handleAction(el).catch(err=>toast(err.message,true));});
 document.addEventListener('submit',evt=>{if(evt.target.id==='auth-form'){evt.preventDefault();submitAuth(evt.target);}if(evt.target.id==='edit-form'){evt.preventDefault();submitSheet(evt.target);}});
+async function handleBackupFile(file){if(!file)return;try{if(file.size>10*1024*1024)throw Error('حجم ملف النسخة يتجاوز 10 ميجابايت');const b=JSON.parse(await file.text());if(b.format!=='alsarh.offline.v1')throw Error('هذا الملف ليس نسخة تجريبية معتمدة');if(state.user&&!confirm('استيراد البيانات سيغيّر سجلات المؤسسة. يجب استخدام مؤسسة جديدة فارغة. هل تريد المتابعة؟'))return;const r=await post('/import-offline',b);state.user=null;state.cache={};state.first=false;toast(r.needsLogin?'تمت الاستعادة، سجّل دخولك':'تم نقل البيانات');await initialize();}catch(err){toast(err.message||'تعذر قراءة الملف',true);}}
+window.ALSARH_IMPORT_FILE=async raw=>{try{const b=JSON.parse(raw);if(b.format!=='alsarh.offline.v1')throw Error('نسخة غير صحيحة');await post('/import-offline',b);await initialize();}catch(ex){toast(ex.message,true);}};
+document.addEventListener('change',evt=>{if(evt.target.id==='alsarh-backup-file')handleBackupFile(evt.target.files?.[0]);});
 document.addEventListener('input',evt=>{if(evt.target.matches('[data-search]'))handleSearch(evt.target.value);});
-if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('/sw.js').catch(()=>{});
+if(!LOCAL&&'serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('/sw.js').catch(()=>{});
 initialize();

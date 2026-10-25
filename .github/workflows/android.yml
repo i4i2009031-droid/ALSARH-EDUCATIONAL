@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'android/**'
+      - 'web/**'
       - '.github/workflows/android.yml'
 permissions:
   contents: read
