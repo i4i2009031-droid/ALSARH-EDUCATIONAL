@@ -16,7 +16,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceError;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.webkit.SslError;
+import android.net.http.SslError;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
