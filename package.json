@@ -1,7 +1,7 @@
 {
   "name":"alsarh-educational-system",
   "private":true,
-  "version":"0.2.0",
+  "version":"0.3.0",
   "description":"الصرح التعليمي - منظومة التعليم والإدارة والحسابات",
   "engines":{"node":">=22.16.0 <23"},
   "scripts":{

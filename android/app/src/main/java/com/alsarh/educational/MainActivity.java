@@ -9,6 +9,10 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
+import android.view.WindowInsets;
+import android.os.Build;
+import android.widget.FrameLayout;
+import android.graphics.Insets;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
@@ -39,6 +43,7 @@ public class MainActivity extends Activity {
     private static final int PICK_IMPORT = 1103;
     private static final String LOCAL_URL = "https://appassets.androidplatform.net/assets/index.html";
     private WebView web;
+    private FrameLayout safeContainer;
     private String serverUrl = "";
     private String pendingBackup = "";
     private ValueCallback<Uri[]> importCallback;
@@ -46,9 +51,20 @@ public class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        getWindow().setStatusBarColor(NAVY);
-        getWindow().setNavigationBarColor(Color.WHITE);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        // Android 15+ enforces edge-to-edge for apps targeting API 35.
+        // Reserve the actual system bar + display cutout insets before WebView renders.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+            getWindow().setStatusBarColor(Color.TRANSPARENT);
+            getWindow().setNavigationBarColor(Color.TRANSPARENT);
+            getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+            if (Build.VERSION.SDK_INT >= 29) getWindow().setNavigationBarContrastEnforced(false);
+        } else {
+            getWindow().setStatusBarColor(NAVY);
+            getWindow().setNavigationBarColor(Color.WHITE);
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        }
         serverUrl = getPreferences(Context.MODE_PRIVATE).getString("server_url", "");
         assets = new WebViewAssetLoader.Builder()
             .setDomain("appassets.androidplatform.net")
@@ -105,7 +121,24 @@ public class MainActivity extends Activity {
                 if (!isLocal() && request.isForMainFrame()) Toast.makeText(MainActivity.this, "تعذر الاتصال بالخادم. يمكنك العودة للتجربة المحلية من الإعدادات.", Toast.LENGTH_LONG).show();
             }
         });
-        setContentView(web);
+        safeContainer = new FrameLayout(this);
+        safeContainer.setBackgroundColor(Color.WHITE);
+        safeContainer.addView(web, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            safeContainer.setOnApplyWindowInsetsListener((v, windowInsets) -> {
+                Insets bars = windowInsets.getInsets(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                // Keep the app header below the clock/camera and the mobile
+                // navigation safely above Android's system buttons and keyboard.
+                Insets keyboard = windowInsets.getInsets(WindowInsets.Type.ime());
+                v.setPadding(bars.left, bars.top, bars.right,
+                    Math.max(bars.bottom, keyboard.bottom));
+                return windowInsets;
+            });
+        }
+        setContentView(safeContainer);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) safeContainer.requestApplyInsets();
     }
 
     private String validatedHttps(String raw) {

@@ -51,7 +51,7 @@ const ALLOWED = {
   questions: ['question','classId','subjectId','options','solution','maxScore','difficulty','status'],
   transport: ['name','driverName','phone','capacity','route','status'],
   meetings: ['title','classId','date','startTime','location','description','audience'],
-  behavior: ['studentId','date','description','action','status'],
+  behavior: ['studentId','date','kind','description','action','status'],
   libraryLoans: ['studentId','bookId','date','dueDate','status','notes'],
   salaryPlans: ['employeeId','amount','startDate','status','notes'],
 };
@@ -220,7 +220,7 @@ function idem(user,key,fn){
 }
 function serveStatic(req,res,pathname){
   let filename=pathname==='/'?'/index.html':pathname;
-  if(!['/','/index.html','/app.js','/offline.js','/styles.css','/sw.js','/manifest.webmanifest','/logo.svg','/icon.svg'].includes(filename)) filename='/index.html';
+  if(!['/','/index.html','/app.js','/analytics.js','/offline.js','/styles.css','/sw.js','/manifest.webmanifest','/logo.svg','/icon.svg'].includes(filename)) filename='/index.html';
   const file=path.join(WEB_DIR,filename.replace(/^\//,''));
   if(!fs.existsSync(file)){res.writeHead(404);return res.end('Not found');}
   const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'}[path.extname(file)]||'application/octet-stream';
@@ -230,7 +230,7 @@ async function route(req,res){
   const u=new URL(req.url,'http://localhost');const p=u.pathname;
   if(!p.startsWith('/api/'))return serveStatic(req,res,p);
   checkOrigin(req);
-  if(p==='/api/health'&&req.method==='GET')return json(res,200,{ok:true,initialized:!!db.prepare('SELECT 1 FROM organizations LIMIT 1').get(),version:'0.1.0'});
+  if(p==='/api/health'&&req.method==='GET')return json(res,200,{ok:true,initialized:!!db.prepare('SELECT 1 FROM organizations LIMIT 1').get(),version:'0.3.0'});
   const b=['POST','PATCH','PUT'].includes(req.method)?await bodyFrom(req,p==='/api/import-offline'?10*1024*1024:512000):{};
   if(p==='/api/setup'&&req.method==='POST'){
     if(db.prepare('SELECT 1 FROM organizations LIMIT 1').get())error(409,'تم إنشاء المؤسسة بالفعل');

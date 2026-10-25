@@ -33,7 +33,7 @@ app.whenReady().then(()=>{
   if(url.host!=='app')return new Response('Forbidden',{status:403});
   let pathname=decodeURIComponent(url.pathname);
   if(pathname==='/')pathname='/index.html';
-  if(!['/index.html','/app.js','/offline.js','/styles.css','/logo.svg','/icon.svg','/manifest.webmanifest'].includes(pathname))return new Response('Not found',{status:404});
+  if(!['/index.html','/app.js','/analytics.js','/offline.js','/styles.css','/logo.svg','/icon.svg','/manifest.webmanifest'].includes(pathname))return new Response('Not found',{status:404});
   return net.fetch(pathToFileURL(path.join(webPath(),pathname.slice(1))).toString());
  });
  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'الصرح التعليمي',submenu:[{label:'التجربة المحلية (دون إنترنت)',click:()=>{try{fs.unlinkSync(configPath());}catch{}local();}},{role:'quit',label:'إغلاق'}]}]));
