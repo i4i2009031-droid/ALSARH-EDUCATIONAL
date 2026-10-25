@@ -1,0 +1,24 @@
+name: Verify Web and API
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Syntax and integration tests
+        run: |
+          npm run check
+          npm test
+      - name: Validate deployment composition
+        run: docker compose -f deploy/compose.yml config --quiet
+        env:
+          ALSARH_DOMAIN: school.example.com
